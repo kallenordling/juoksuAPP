@@ -28,8 +28,18 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: juoksu-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Publish rolling release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest debug build
+          body: Auto-built from ${{ github.sha }}
+          files: app/build/outputs/apk/debug/*.apk
+          make_latest: "true"
