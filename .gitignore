@@ -11,3 +11,4 @@ app/build
 .cxx
 *.keystore
 *.jks
+.claude/
