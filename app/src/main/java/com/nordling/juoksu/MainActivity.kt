@@ -56,6 +56,20 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnStartRun.setOnClickListener { checkPermissionsAndStart() }
+        binding.btnGoal.setOnClickListener {
+            startActivity(Intent(this, GoalActivity::class.java))
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val g = GoalStore.get(this)
+        binding.textGoalSummary.text = if (g == null) "No goal set" else {
+            val preset = GoalPresets.ALL.firstOrNull {
+                kotlin.math.abs(it.meters - g.distanceMeters) < 0.5
+            }?.name ?: "%.2f km".format(g.distanceMeters / 1000.0)
+            "$preset in ${formatHms(g.targetSeconds)}  •  ${formatPace(g.paceSecPerKm)}"
+        }
     }
 
     private fun checkPermissionsAndStart() {

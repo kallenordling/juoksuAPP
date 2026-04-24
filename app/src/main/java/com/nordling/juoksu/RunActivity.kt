@@ -3,8 +3,10 @@ package com.nordling.juoksu
 import android.content.ComponentName
 import android.content.Intent
 import android.content.ServiceConnection
+import android.graphics.Color
 import android.location.Location
 import android.os.Bundle
+import android.view.View
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -42,6 +44,8 @@ class RunActivity : AppCompatActivity() {
             s.currentSpeedMps.observe(this@RunActivity) { updateSpeed(it ?: 0f) }
             s.totalDistanceMeters.observe(this@RunActivity) { updateDistance(it ?: 0.0) }
             s.lastLocation.observe(this@RunActivity) { it?.let(::updateLocation) }
+            s.goal.observe(this@RunActivity) { updateGoal(it) }
+            s.paceStatus.observe(this@RunActivity) { updatePaceStatus(it) }
             updateButton()
         }
 
@@ -109,6 +113,7 @@ class RunActivity : AppCompatActivity() {
     }
 
     private fun updateSpeed(mps: Float) {
+        currentSpeed = mps
         val kmh = mps * 3.6f
         binding.textSpeed.text = "%.1f km/h".format(kmh)
         val paceSecPerKm = if (mps > 0.1f) (1000f / mps).toInt() else 0
@@ -116,10 +121,52 @@ class RunActivity : AppCompatActivity() {
             "%d:%02d /km".format(paceSecPerKm / 60, paceSecPerKm % 60)
         else
             "—:— /km"
+        updatePaceStatus(service?.paceStatus?.value)
     }
 
     private fun updateDistance(meters: Double) {
         binding.textDistance.text = "%.2f km".format(meters / 1000.0)
+    }
+
+    private var currentSpeed: Float = 0f
+
+    private fun updateGoal(g: Goal?) {
+        if (g == null) {
+            binding.cardGoal.visibility = View.GONE
+        } else {
+            binding.cardGoal.visibility = View.VISIBLE
+            binding.textTargetPace.text = "Target: ${formatPace(g.paceSecPerKm)}  •  %.1f km/h".format(g.targetSpeedMps * 3.6)
+        }
+    }
+
+    private fun updatePaceStatus(status: LoggingService.PaceStatus?) {
+        val g = service?.goal?.value
+        when (status) {
+            LoggingService.PaceStatus.AHEAD -> {
+                binding.textPaceStatus.text = "▲ AHEAD"
+                binding.textPaceStatus.setTextColor(Color.parseColor("#2E7D32"))
+            }
+            LoggingService.PaceStatus.BEHIND -> {
+                binding.textPaceStatus.text = "▼ BEHIND"
+                binding.textPaceStatus.setTextColor(Color.parseColor("#C62828"))
+            }
+            LoggingService.PaceStatus.WAITING -> {
+                binding.textPaceStatus.text = "Waiting…"
+                binding.textPaceStatus.setTextColor(Color.GRAY)
+            }
+            else -> {
+                binding.textPaceStatus.text = ""
+            }
+        }
+        if (g != null && currentSpeed > 0.3f) {
+            val currentPace = 1000.0 / currentSpeed
+            val delta = currentPace - g.paceSecPerKm
+            val sign = if (delta >= 0) "+" else "-"
+            val absDelta = kotlin.math.abs(delta).toInt()
+            binding.textPaceDelta.text = "Now ${formatPace(currentPace)}  ($sign%d:%02d vs target)".format(absDelta / 60, absDelta % 60)
+        } else {
+            binding.textPaceDelta.text = ""
+        }
     }
 
     private fun updateLocation(loc: Location) {
